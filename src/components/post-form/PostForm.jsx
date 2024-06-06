@@ -19,36 +19,48 @@ export default function PostForm({ post }) {
   const userData = useSelector((state) => state.auth.userData);
 
   const submit = async (data) => {
-    if (post) {
-      const file = data.image ? await appwriteService.uploadFile(data.image[0]) : null;
-
-      if (file) {
-        appwriteService.deleteFile(post.featuredImage);
+    try {
+      let fileId = null;
+      
+      if (data.image) {
+        const file = await appwriteService.uploadFile(data.image[0]);
+        fileId = file.$id;
+        
+        if (post && post.featuredImage) {
+          await appwriteService.deleteFile(post.featuredImage);
+        }
       }
-
-      const dbPost = await appwriteService.updatePost(post.$id, {
-        ...data,
-        featuredImage: file ? file.$id : undefined,
-      });
-
-      if (dbPost) {
-        navigate(`/post/${dbPost.$id}`);
-      }
-    } else {
-      const file = data.image ? await appwriteService.uploadFile(data.image[0]) : null;
-
-      if (file) {
-        const fileId = file.$id;
-        data.featuredImage = fileId;
-        const dbPost = await appwriteService.createPost({ ...data, userId: userData?.$id });
-
+      
+      if (post) {
+        const updatedData = {
+          ...data,
+          featuredImage: fileId ? fileId : post.featuredImage
+        };
+  
+        const dbPost = await appwriteService.updatePost(post.$id, updatedData);
+        
+        if (dbPost) {
+          navigate(`/post/${dbPost.$id}`);
+        }
+      } else {
+        const newPostData = {
+          ...data,
+          featuredImage: fileId,
+          userId: userData?.$id
+        };
+  
+        const dbPost = await appwriteService.createPost(newPostData);
+  
         if (dbPost) {
           navigate(`/post/${dbPost.$id}`);
         }
       }
+    } catch (error) {
+      console.error("An error occurred:", error);
+      // Optionally, you can show an error message to the user
     }
   };
-
+  
   const slugTransform = useCallback((value) => {
     if (value && typeof value === "string")
       return value
